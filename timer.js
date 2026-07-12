@@ -61,6 +61,11 @@ function pick(list) {
     return list[Math.floor(Math.random() * list.length)];
 }
 
+// How long the cannons keep firing, in milliseconds.
+const CELEBRATION_EMIT_MS = 3000;
+const GRAVITY = 0.35;
+const DRAG = 0.992;
+
 function celebrate() {
     const canvas = document.querySelector(".confetti-canvas");
     const ctx = canvas.getContext("2d");
@@ -72,52 +77,66 @@ function celebrate() {
     resize();
     window.addEventListener("resize", resize);
 
-    const gravity = 0.12;
     const pieces = [];
-
-    // Confetti: small spinning rectangles that flutter as they fall.
-    for (let i = 0; i < 160; i++) {
-        pieces.push({
-            type: "confetti",
-            x: rand(0, canvas.width),
-            y: rand(-canvas.height * 0.6, -10),
-            w: rand(6, 12),
-            h: rand(8, 16),
-            color: pick(CELEBRATION_COLORS),
-            vx: rand(-2, 2),
-            vy: rand(1.5, 4),
-            rot: rand(0, Math.PI * 2),
-            vrot: rand(-0.25, 0.25),
-            sway: rand(0, Math.PI * 2),
-            swaySpeed: rand(0.02, 0.06),
-        });
-    }
-
-    // Streamers: long wavy ribbons that drift down more slowly.
-    for (let i = 0; i < 28; i++) {
-        pieces.push({
-            type: "streamer",
-            x: rand(0, canvas.width),
-            y: rand(-canvas.height * 0.8, -40),
-            len: rand(50, 110),
-            color: pick(CELEBRATION_COLORS),
-            vx: rand(-1.2, 1.2),
-            vy: rand(1, 2.4),
-            phase: rand(0, Math.PI * 2),
-            waveAmp: rand(6, 12),
-            waveFreq: rand(0.08, 0.16),
-            sway: rand(0, Math.PI * 2),
-            swaySpeed: rand(0.015, 0.04),
-            swayAmp: rand(0.6, 1.6),
-        });
-    }
-
+    let startTime = null;
     let frameId = null;
 
+    // Two cannons in the lower corners, each firing up and inward at ~45°.
+    function cannons() {
+        return [
+            { x: 0, y: canvas.height, dir: 1 },              // bottom-left  -> up-right
+            { x: canvas.width, y: canvas.height, dir: -1 },  // bottom-right -> up-left
+        ];
+    }
+
+    function emit() {
+        for (const c of cannons()) {
+            // A dense stream of confetti.
+            for (let i = 0; i < 5; i++) {
+                const angle = rand(Math.PI / 4 - 0.32, Math.PI / 4 + 0.32);
+                const speed = rand(15, 30);
+                pieces.push({
+                    type: "confetti",
+                    x: c.x,
+                    y: c.y,
+                    vx: c.dir * Math.cos(angle) * speed,
+                    vy: -Math.sin(angle) * speed,
+                    w: rand(6, 14),
+                    h: rand(8, 17),
+                    color: pick(CELEBRATION_COLORS),
+                    rot: rand(0, Math.PI * 2),
+                    vrot: rand(-0.35, 0.35),
+                    sway: rand(0, Math.PI * 2),
+                    swaySpeed: rand(0.03, 0.09),
+                });
+            }
+            // Streamers fired alongside, trailing ribbons behind them.
+            if (Math.random() < 0.55) {
+                const angle = rand(Math.PI / 4 - 0.28, Math.PI / 4 + 0.28);
+                const speed = rand(16, 27);
+                pieces.push({
+                    type: "streamer",
+                    x: c.x,
+                    y: c.y,
+                    vx: c.dir * Math.cos(angle) * speed,
+                    vy: -Math.sin(angle) * speed,
+                    len: rand(45, 105),
+                    color: pick(CELEBRATION_COLORS),
+                    phase: rand(0, Math.PI * 2),
+                    waveAmp: rand(5, 12),
+                    waveFreq: rand(0.1, 0.18),
+                    wave: rand(0, Math.PI * 2),
+                    waveSpeed: rand(0.15, 0.3),
+                });
+            }
+        }
+    }
+
     function drawConfetti(p) {
-        p.vy += gravity;
+        p.vy += GRAVITY;
+        p.vx *= DRAG;
         p.sway += p.swaySpeed;
-        p.x += p.vx + Math.sin(p.sway) * 0.6;
+        p.x += p.vx;
         p.y += p.vy;
         p.rot += p.vrot;
 
@@ -132,37 +151,51 @@ function celebrate() {
     }
 
     function drawStreamer(p) {
-        p.vy += gravity * 0.4;
-        p.sway += p.swaySpeed;
-        p.x += p.vx + Math.sin(p.sway) * p.swayAmp;
+        p.vy += GRAVITY * 0.5;
+        p.vx *= DRAG;
+        p.x += p.vx;
         p.y += p.vy;
+        p.wave += p.waveSpeed;
+
+        // Trail the ribbon behind the head, along the reverse of its heading.
+        const speed = Math.hypot(p.vx, p.vy) || 1;
+        const ux = p.vx / speed;
+        const uy = p.vy / speed;
+        const perpX = -uy;
+        const perpY = ux;
 
         ctx.strokeStyle = p.color;
         ctx.lineWidth = 5;
         ctx.lineCap = "round";
         ctx.beginPath();
         for (let s = 0; s <= p.len; s += 5) {
-            const xx = p.x + Math.sin(s * p.waveFreq + p.phase + p.sway) * p.waveAmp;
-            const yy = p.y + s;
+            const wobble = Math.sin(s * p.waveFreq + p.phase + p.wave) * p.waveAmp;
+            const xx = p.x - ux * s + perpX * wobble;
+            const yy = p.y - uy * s + perpY * wobble;
             if (s === 0) ctx.moveTo(xx, yy);
             else ctx.lineTo(xx, yy);
         }
         ctx.stroke();
     }
 
-    function frame() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        let alive = 0;
+    function frame(now) {
+        if (startTime === null) startTime = now;
+        const elapsed = now - startTime;
 
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (elapsed < CELEBRATION_EMIT_MS) emit();
+
+        let alive = 0;
         for (const p of pieces) {
             if (p.type === "confetti") drawConfetti(p);
             else drawStreamer(p);
 
             const tail = p.type === "streamer" ? p.len : p.h;
-            if (p.y - tail < canvas.height + 40) alive++;
+            if (p.y - tail < canvas.height + 60) alive++;
         }
 
-        if (alive > 0) {
+        if (elapsed < CELEBRATION_EMIT_MS || alive > 0) {
             frameId = requestAnimationFrame(frame);
         } else {
             cancelAnimationFrame(frameId);
@@ -171,5 +204,5 @@ function celebrate() {
         }
     }
 
-    frame();
+    frameId = requestAnimationFrame(frame);
 }
