@@ -65,6 +65,8 @@ function pick(list) {
 const CELEBRATION_EMIT_MS = 3000;
 const GRAVITY = 0.35;
 const DRAG = 0.992;
+// Launch angle above horizontal for each cannon (70°).
+const LAUNCH_ANGLE = (70 * Math.PI) / 180;
 
 function celebrate() {
     const canvas = document.querySelector(".confetti-canvas");
@@ -93,7 +95,7 @@ function celebrate() {
         for (const c of cannons()) {
             // A dense stream of confetti.
             for (let i = 0; i < 5; i++) {
-                const angle = rand(Math.PI / 4 - 0.32, Math.PI / 4 + 0.32);
+                const angle = rand(LAUNCH_ANGLE - 0.18, LAUNCH_ANGLE + 0.18);
                 const speed = rand(15, 30);
                 pieces.push({
                     type: "confetti",
@@ -112,7 +114,7 @@ function celebrate() {
             }
             // Streamers fired alongside, trailing ribbons behind them.
             if (Math.random() < 0.55) {
-                const angle = rand(Math.PI / 4 - 0.28, Math.PI / 4 + 0.28);
+                const angle = rand(LAUNCH_ANGLE - 0.15, LAUNCH_ANGLE + 0.15);
                 const speed = rand(16, 27);
                 pieces.push({
                     type: "streamer",
