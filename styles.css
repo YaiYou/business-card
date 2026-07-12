@@ -39,6 +39,69 @@ body {
     border: 1px dotted blue;
 }
 
+/* Ring countdown timer */
+.timer {
+    width: 400px;
+    margin: 30px auto 0;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.timer-ring {
+    transform: rotate(-90deg);
+}
+
+.timer-ring-track {
+    fill: none;
+    stroke: #AAD7FDff;
+    stroke-width: 12;
+}
+
+.timer-ring-progress {
+    fill: none;
+    stroke: #7AA4DDff;
+    stroke-width: 12;
+    stroke-linecap: round;
+    /* circumference of r=90 circle: 2 * PI * 90 ≈ 565.487 */
+    stroke-dasharray: 565.487;
+    stroke-dashoffset: 565.487;
+    transition: stroke-dashoffset 1s linear;
+}
+
+.timer-display {
+    /* pull the number into the middle of the ring */
+    margin-top: -125px;
+    margin-bottom: 90px;
+    font-size: 48px;
+    font-weight: bold;
+    color: #2b2839;
+}
+
+.timer-button {
+    margin-top: 10px;
+    padding: 10px 20px;
+    font-family: inherit;
+    font-size: 16px;
+    color: #2b2839;
+    background: #AAD7FDff;
+    border: none;
+    border-bottom: 4px solid #7AA4DDff;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.timer-button:hover {
+    background: #7AA4DDff;
+}
+
+.timer-button:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
 /*
 Stretch goals:
 Find other ways you can personalize 
